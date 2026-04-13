@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient, getApiBase } from "@/lib/queryClient";
+import { apiRequest, queryClient, checkBackendAlive } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ScanResult, Alert, WatchlistItem } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +78,15 @@ export default function Dashboard() {
   const [sortKey, setSortKey] = useState<keyof ScanResult>("rsRank");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [alertPanelOpen, setAlertPanelOpen] = useState(false);
+  const [backendAlive, setBackendAlive] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Check backend connectivity on mount and every 30s
+  useEffect(() => {
+    checkBackendAlive().then(setBackendAlive);
+    const iv = setInterval(() => checkBackendAlive().then(setBackendAlive), 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   const { data: results = [], isLoading: resultsLoading } = useQuery<ScanResult[]>({
     queryKey: ["/api/scan-results"],
@@ -303,9 +311,9 @@ export default function Dashboard() {
           <span className="subtitle">NASDAQ Micro/Small Cap · Top RS · High ADR</span>
         </div>
         <div className="header-right">
-          {getApiBase()
+          {backendAlive
             ? <span className="backend-status connected">● Backend Connected</span>
-            : <span className="backend-status disconnected" title="Open this scanner from inside the Perplexity Computer session tab">● Backend Offline — open from Computer session</span>
+            : <span className="backend-status disconnected" title="Backend server is not reachable">● Backend Offline</span>
           }
           {results.length > 0 && (
             <span className="last-scan">
